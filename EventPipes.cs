@@ -1,4 +1,5 @@
 ﻿using System.IO.Pipes;
+using System.Linq.Expressions;
 
 namespace WTDawson.EventPipes
 {
@@ -22,9 +23,6 @@ namespace WTDawson.EventPipes
         private CancellationTokenSource primaryCTS;
         private CancellationTokenSource secondaryCTS;
 
-        private Client _client;
-        private Server _server;
-
         /// <summary>
         /// Creates an EventPipes instance.
         /// Swap the primary and secondary values on one end otherwise it will not work.
@@ -45,9 +43,6 @@ namespace WTDawson.EventPipes
             client = new NamedPipeClientStream(secondary);
             clientReader = new StreamReader(client);
             clientWriter = new StreamWriter(client);
-
-            _client = new Client();
-            _server = new Server();
         }
 
         /// <summary>
@@ -166,12 +161,30 @@ namespace WTDawson.EventPipes
 
             primaryTask = Task.Factory.StartNew(() =>
             {
-                // Listen for any incoming messages
+
             }, primaryCTS.Token);
 
             secondaryTask = Task.Factory.StartNew(() =>
             {
+                while (true)
+                {
+                    string? content = clientReader.ReadLine();
+                    if (content != null)
+                    {
+                        Message message = DecodeMessage(content);
 
+                        for (int i = 0; i < callbacks.Count; i++)
+                        {
+                            if(callbacks[i].Key == message.Name)
+                            {
+                                callbacks[i].Value.ForEach((EventCallback callback) =>
+                                {
+                                    callback.callback(message.Data);
+                                });
+                            }
+                        }
+                    }
+                }
             }, secondaryCTS.Token);
         }
 
@@ -196,19 +209,30 @@ namespace WTDawson.EventPipes
             Initialise();
         }
 
-        private class Event
-        {
+        List<KeyValuePair<string, List<EventCallback>>> callbacks = new List<KeyValuePair<string, List<EventCallback>>>();
 
+        private class EventCallback
+        {
+            public Action<byte[]> callback { get; set; }
         }
 
         /// <summary>
-        /// Add a callback to a specific event
+        /// Add a callback to a specific event (Will receive over the secondary pipe)
         /// </summary>
         /// <param name="name">The name of the event</param>
         /// <param name="callback">The callback</param>
         public void On(string name, Action<byte[]> callback)
         {
-
+            for (int i = 0; i < callbacks.Count; i++)
+            {
+                if (callbacks[i].Key == name)
+                {
+                    callbacks[i].Value.Add(new EventCallback() { callback = callback });
+                    return;
+                }
+            }
+            callbacks.Add(new KeyValuePair<string, List<EventCallback>>(name, new List<EventCallback>() { new EventCallback() { callback = callback } }));
+            return;
         }
 
         /// <summary>
@@ -216,7 +240,7 @@ namespace WTDawson.EventPipes
         /// </summary>
         public void ClearCallbacks()
         {
-
+            callbacks.Clear();
         }
 
         private class Message
@@ -225,25 +249,50 @@ namespace WTDawson.EventPipes
             public byte[] Data { get; set; } = Array.Empty<byte>();
         }
 
+        /// <summary>
+        /// Encodes a message
+        /// </summary>
+        /// <param name="message">The message object</param>
+        /// <returns>The encoded message</returns>
         private string EncodeMessage(Message message)
         {
             return $"{message.Name},{ Convert.ToBase64String(message.Data)}";
         }
 
+        /// <summary>
+        /// Decodes a message
+        /// </summary>
+        /// <param name="data">The encoded message</param>
+        /// <returns>The decoded message</returns>
         private Message DecodeMessage(string data)
         {
             string[] split = data.Split(',');
             return new Message { Name = split[0], Data = Convert.FromBase64String(split[1]) };
         }
 
+        /// <summary>
+        /// Send a message over the primary pipe (server)
+        /// </summary>
+        /// <param name="name">The name of the event</param>
+        /// <param name="data">The data</param>
         public void Send(string name, byte[] data)
         {
-            
+            string message = EncodeMessage(new Message() { Name = name, Data = data });
+            serverWriter.WriteLine(message);
+            serverWriter.Flush();
         }
 
+        /// <summary>
+        /// Send a message over the primary pipe (server)
+        /// </summary>
+        /// <param name="name">The name of the event</param>
+        /// <param name="data">The data</param>
+        /// <returns></returns>
         public async Task SendAsync(string name, byte[] data)
         {
-
+            string message = EncodeMessage(new Message() { Name = name, Data = data });
+            await serverWriter.WriteLineAsync(message);
+            await serverWriter.FlushAsync();
         }
     }
 }
