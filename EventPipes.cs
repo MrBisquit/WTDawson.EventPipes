@@ -50,7 +50,6 @@ namespace WTDawson.EventPipes
         /// </summary>
         ~EventPipe()
         {
-            Disconnect();
             Dispose();
         }
 
@@ -100,6 +99,9 @@ namespace WTDawson.EventPipes
             if (timeout == default) client.Connect();
             else client.Connect(timeout);
 
+            if (IsConnected())
+                InvokeSystemCallback("connected");
+
             Initialise();
         }
 
@@ -111,6 +113,9 @@ namespace WTDawson.EventPipes
         {
             if (timeout == default) client.Connect();
             else client.Connect(timeout);
+
+            if (IsConnected())
+                InvokeSystemCallback("connected");
 
             Initialise();
         }
@@ -125,6 +130,9 @@ namespace WTDawson.EventPipes
             if (timeout == default) await client.ConnectAsync();
             else await client.ConnectAsync(ct);
 
+            if (IsConnected())
+                InvokeSystemCallback("connected");
+
             Initialise();
         }
 
@@ -138,6 +146,9 @@ namespace WTDawson.EventPipes
             if (timeout == default) await client.ConnectAsync();
             else await client.ConnectAsync(ct);
 
+            if(IsConnected())
+                InvokeSystemCallback("connected");
+
             Initialise();
         }
 
@@ -149,6 +160,16 @@ namespace WTDawson.EventPipes
             server.Disconnect();
             server.Close();
             client.Close();
+            InvokeSystemCallback("disconnected");
+        }
+
+        /// <summary>
+        /// Returns if the pipes are connected.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsConnected()
+        {
+            return server.IsConnected && client.IsConnected;
         }
 
         /// <summary>
@@ -218,6 +239,24 @@ namespace WTDawson.EventPipes
             new("connected", new List<SystemCallback>()),
             new("disconnected", new List<SystemCallback>())
         };
+
+        /// <summary>
+        /// Invoke a system callback
+        /// </summary>
+        /// <param name="name">The callback name</param>
+        private void InvokeSystemCallback(string name)
+        {
+            for (int i = 0; i < systemCallbacks.Length; i++)
+            {
+                if(systemCallbacks[i].Key == name)
+                {
+                    for (int j = 0; j < systemCallbacks[i].Value.Count; j++)
+                    {
+                        systemCallbacks[i].Value[j].callback();
+                    }
+                }
+            }
+        }
 
         private class EventCallback
         {
