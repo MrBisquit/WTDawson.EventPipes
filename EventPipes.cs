@@ -161,7 +161,10 @@ namespace WTDawson.EventPipes
 
             primaryTask = Task.Factory.StartNew(() =>
             {
-
+                while (true)
+                {
+                    server.WaitForConnection();
+                }
             }, primaryCTS.Token);
 
             secondaryTask = Task.Factory.StartNew(() =>
@@ -210,10 +213,20 @@ namespace WTDawson.EventPipes
         }
 
         List<KeyValuePair<string, List<EventCallback>>> callbacks = new List<KeyValuePair<string, List<EventCallback>>>();
+        KeyValuePair<string, List<SystemCallback>>[] systemCallbacks =
+        {
+            new("connected", new List<SystemCallback>()),
+            new("disconnected", new List<SystemCallback>())
+        };
 
         private class EventCallback
         {
             public Action<byte[]> callback { get; set; }
+        }
+
+        private class SystemCallback
+        {
+            public Action callback { get; set; }
         }
 
         /// <summary>
@@ -236,11 +249,40 @@ namespace WTDawson.EventPipes
         }
 
         /// <summary>
+        /// Add a callback to a system event, available events: connected, disconnected.
+        /// </summary>
+        /// <param name="name">The name of the system event</param>
+        /// <param name="callback">The callback</param>
+        public void Once(string name, Action callback)
+        {
+            for (int i = 0; i < systemCallbacks.Length; i++)
+            {
+                if(systemCallbacks[i].Key == name)
+                {
+                    systemCallbacks[i].Value.Add(new SystemCallback() { callback = callback });
+                    return;
+                }
+            }
+            throw new Exception("Invalid system callback, check documentation for details");
+        }
+
+        /// <summary>
         /// Removes all callbacks registered using the On function
         /// </summary>
         public void ClearCallbacks()
         {
             callbacks.Clear();
+        }
+
+        /// <summary>
+        /// Removes all callbacks registered using the Once function
+        /// </summary>
+        public void ClearSystemCallbacks()
+        {
+            for (int i = 0; i < systemCallbacks.Length; i++)
+            {
+                systemCallbacks[i].Value.Clear();
+            }
         }
 
         private class Message
