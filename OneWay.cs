@@ -4,7 +4,6 @@ using System.IO.Pipes;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static WTDawson.EventPipes.OneWayEventPipe;
 
 namespace WTDawson.EventPipes
 {
@@ -38,10 +37,6 @@ namespace WTDawson.EventPipes
                 // Close and dispose client reader
                 clientReader.Close();
                 clientReader.Dispose();
-
-                // Close and dispose client writer
-                clientWriter.Close();
-                clientWriter.Dispose();
 
                 // Cancel the task (kill the thread)
                 CTS.Cancel();
@@ -130,7 +125,7 @@ namespace WTDawson.EventPipes
                         string? content = clientReader.ReadLine();
                         if (content != null)
                         {
-                            Message message = DecodeMessage(content);
+                            Message message = Message.DecodeMessage(content);
 
                             for (int i = 0; i < callbacks.Count; i++)
                             {
@@ -250,7 +245,7 @@ namespace WTDawson.EventPipes
                 {
                     server.WaitForConnection();
                     InvokeSystemCallback("connected");
-                }, CTS);
+                }, CTS.Token);
             }
 
             ~Server()
@@ -284,7 +279,6 @@ namespace WTDawson.EventPipes
             {
                 server.Disconnect();
                 server.Close();
-                client.Close();
                 InvokeSystemCallback("disconnected");
             }
 
@@ -351,7 +345,7 @@ namespace WTDawson.EventPipes
             /// <param name="data">The data</param>
             public void Send(string name, byte[] data)
             {
-                string message = EncodeMessage(new Message() { Name = name, Data = data });
+                string message = Message.EncodeMessage(new Message() { Name = name, Data = data });
                 serverWriter.WriteLine(message);
                 serverWriter.Flush();
             }
@@ -364,37 +358,37 @@ namespace WTDawson.EventPipes
             /// <returns></returns>
             public async Task SendAsync(string name, byte[] data)
             {
-                string message = EncodeMessage(new Message() { Name = name, Data = data });
+                string message = Message.EncodeMessage(new Message() { Name = name, Data = data });
                 await serverWriter.WriteLineAsync(message);
                 await serverWriter.FlushAsync();
             }
         }
 
-        private class Message
+        public class Message
         {
             public string Name { get; set; } = string.Empty;
             public byte[] Data { get; set; } = Array.Empty<byte>();
-        }
 
-        /// <summary>
-        /// Encodes a message
-        /// </summary>
-        /// <param name="message">The message object</param>
-        /// <returns>The encoded message</returns>
-        private static string EncodeMessage(Message message)
-        {
-            return $"{message.Name},{Convert.ToBase64String(message.Data)}";
-        }
+            /// <summary>
+            /// Encodes a message
+            /// </summary>
+            /// <param name="message">The message object</param>
+            /// <returns>The encoded message</returns>
+            public static string EncodeMessage(Message message)
+            {
+                return $"{message.Name},{Convert.ToBase64String(message.Data)}";
+            }
 
-        /// <summary>
-        /// Decodes a message
-        /// </summary>
-        /// <param name="data">The encoded message</param>
-        /// <returns>The decoded message</returns>
-        private static Message DecodeMessage(string data)
-        {
-            string[] split = data.Split(',');
-            return new Message { Name = split[0], Data = Convert.FromBase64String(split[1]) };
+            /// <summary>
+            /// Decodes a message
+            /// </summary>
+            /// <param name="data">The encoded message</param>
+            /// <returns>The decoded message</returns>
+            public static Message DecodeMessage(string data)
+            {
+                string[] split = data.Split(',');
+                return new Message { Name = split[0], Data = Convert.FromBase64String(split[1]) };
+            }
         }
     }
 }
