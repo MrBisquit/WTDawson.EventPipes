@@ -59,6 +59,8 @@ namespace WTDawson.EventPipes
 
                 if (IsConnected())
                     InvokeSystemCallback("connected");
+
+                Initialise();
             }
 
             /// <summary>
@@ -72,6 +74,8 @@ namespace WTDawson.EventPipes
 
                 if (IsConnected())
                     InvokeSystemCallback("connected");
+
+                Initialise();
             }
 
             /// <summary>
@@ -86,6 +90,8 @@ namespace WTDawson.EventPipes
 
                 if (IsConnected())
                     InvokeSystemCallback("connected");
+
+                Initialise();
             }
 
             /// <summary>
@@ -100,6 +106,8 @@ namespace WTDawson.EventPipes
 
                 if (IsConnected())
                     InvokeSystemCallback("connected");
+
+                Initialise();
             }
 
             /// <summary>
