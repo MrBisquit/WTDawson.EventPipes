@@ -9,7 +9,7 @@
     <RepositoryUrl>https://github.com/MrBisquit/WTDawson.EventPipes</RepositoryUrl>
     <Company>WTDawson</Company>
     <Authors>WTDawson</Authors>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Title>WTDawson.EventPipes</Title>
     <Description>An event based C# named pipes library</Description>
   </PropertyGroup>
